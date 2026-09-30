@@ -88,6 +88,75 @@ app.post("/addReview", checkAuth("user"), async (req, res) => {
   }
 });
 
+app.put("/updateReview", checkAuth("user"), async (req, res) => {
+  try {
+    const customerId = Number(req.user.userId);
+    const reviewId = Number(req.body.review_id);
+    const productId = Number(req.body.product_id);
+    const rating = Number(req.body.rating);
+    const reviewText = req.body.review_text;
+
+    if (!customerId) {
+      return res.status(401).json({
+        error: "Customer is not logged in",
+      });
+    }
+
+    if (!Number.isInteger(reviewId) || reviewId <= 0) {
+      return res.status(400).json({
+        error: "A valid review_id is required",
+      });
+    }
+
+    if (!Number.isInteger(productId) || productId <= 0) {
+      return res.status(400).json({
+        error: "A valid product_id is required",
+      });
+    }
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        error: "Rating must be an integer between 1 and 5",
+      });
+    }
+
+    if (typeof reviewText !== "string" || !reviewText.trim()) {
+      return res.status(400).json({
+        error: "Review text is required",
+      });
+    }
+
+    const result = await db.execute({
+      sql: `
+        UPDATE review
+        SET product_id = ?,
+            rating = ?,
+            review_text = ?
+        WHERE review_id = ?
+          AND Customer_id = ?
+      `,
+      args: [productId, rating, reviewText.trim(), reviewId, customerId],
+    });
+
+    if (result.rowsAffected === 0) {
+      return res.status(404).json({
+        error: "Review not found or you do not own this review",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Review updated successfully",
+      review_id: reviewId,
+    });
+  } catch (error) {
+    console.error("Failed to update review:", error);
+
+    return res.status(500).json({
+      error: "Failed to update review",
+    });
+  }
+});
+
 app.delete("/deleteReview", checkAuth("user"), async (req, res) => {
   try {
     const customerId = Number(req.user.userId);
